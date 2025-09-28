@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-ocean-50 via-wave-50 to-ocean-100 text-ocean-900;
+    background-attachment: fixed;
+  }
+  
+  /* Ocean wave animation background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+      radial-gradient(circle at 20% 80%, rgba(14, 165, 233, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(20, 184, 166, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white/80 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-ocean-200/50;
+  }
+  
+  .card:hover {
+    @apply transform -translate-y-1;
+  }
+  
+  .btn-primary {
+    @apply bg-ocean-gradient text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-300 font-medium transform hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply bg-wave-100 text-wave-800 px-6 py-3 rounded-xl hover:bg-wave-200 transition-all duration-300 font-medium border border-wave-300;
+  }
+  
+  .btn-danger {
+    @apply bg-coral-gradient text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-300 font-medium transform hover:-translate-y-0.5;
+  }
+  
+  .status-badge {
+    @apply px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .status-received {
+    @apply bg-sand-100 text-sand-800 border border-sand-300;
+  }
+  
+  .status-review {
+    @apply bg-sand-100 text-sand-800 border border-sand-300;
+  }
+  
+  .status-verified {
+    @apply bg-wave-100 text-wave-800 border border-wave-300;
+  }
+  
+  .status-false {
+    @apply bg-coral-100 text-coral-800 border border-coral-300;
+  }
+  
+  .alert-advisory {
+    @apply bg-sand-100 text-sand-800 border-l-4 border-sand-500 rounded-lg;
+  }
+  
+  .alert-warning {
+    @apply bg-coral-100 text-coral-800 border-l-4 border-coral-500 rounded-lg;
+  }
+  
+  .alert-information {
+    @apply bg-ocean-100 text-ocean-800 border-l-4 border-ocean-500 rounded-lg;
+  }
+  
+  /* Ocean-themed navigation */
+  .nav-link {
+    @apply text-ocean-700 hover:text-ocean-500 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-ocean-100;
+  }
+  
+  /* Wave animations */
+  .wave-animation {
+    animation: wave 3s ease-in-out infinite;
+  }
+  
+  .float-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .bubble-animation {
+    animation: bubble 4s ease-in-out infinite;
+  }
+  
+  /* Ocean gradient text */
+  .ocean-text {
+    @apply bg-ocean-gradient bg-clip-text text-transparent;
+  }
+  
+  /* Shimmer effect for loading */
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+  
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: shimmer 2s linear infinite;
+  }
+}
