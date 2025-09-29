@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useReports } from '../context/ReportsContext'
+// Import necessary state/functions from the Context
+import { useReports } from '../context/ReportsContext' 
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import Card from '../components/Card'
+import AlertCard from '../components/AlertCard' // Import AlertCard
 
 const ReportHazardPage = () => {
   const navigate = useNavigate()
-  const { addReport } = useReports()
+  // DESTRUCTURING: Get addReport, userId, and isAuthReady from context
+  const { addReport, userId, isAuthReady } = useReports() 
+  
   const [location, setLocation] = useState(null)
   const [selectedHazardType, setSelectedHazardType] = useState(null)
   const [description, setDescription] = useState('')
@@ -21,7 +25,14 @@ const ReportHazardPage = () => {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [manualLat, setManualLat] = useState('')
   const [manualLng, setManualLng] = useState('')
+  const [message, setMessage] = useState(null); // State for custom message box
 
+  // Helper function to show custom alert/message
+  const showAlert = (text, type = 'warning') => {
+      setMessage({ text, type });
+      setTimeout(() => setMessage(null), 5000); // Auto-dismiss after 5 seconds
+  };
+  
   // Get current location
   useEffect(() => {
     if (navigator.geolocation) {
@@ -44,6 +55,15 @@ const ReportHazardPage = () => {
     }
   }, [])
 
+  // Show alert if services are not ready initially
+  useEffect(() => {
+    if (!isAuthReady) {
+        // This gives visual feedback to the user while Firebase connects
+        showAlert('Initializing services...', 'information'); 
+    }
+  }, [isAuthReady]);
+
+
   const hazardTypes = [
     {
       id: 'flooding',
@@ -53,7 +73,7 @@ const ReportHazardPage = () => {
     },
     {
       id: 'erosion',
-      name: 'Coastal Erosion',
+      name: 'Coastal Erosion', // FIX: Removed duplicate 'name' property
       icon: '🏖️',
       color: 'bg-sand-100 text-sand-800 hover:bg-sand-200 border-sand-300'
     },
@@ -98,7 +118,7 @@ const ReportHazardPage = () => {
 
   const handleVoiceInput = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Voice input not supported in this browser')
+      showAlert('Voice input not supported in this browser', 'information')
       return
     }
 
@@ -119,6 +139,7 @@ const ReportHazardPage = () => {
 
     recognition.onerror = () => {
       setIsRecording(false)
+      showAlert('Voice input error. Please try manually.', 'warning');
     }
 
     recognition.onend = () => {
@@ -128,36 +149,76 @@ const ReportHazardPage = () => {
     recognition.start()
   }
 
-  const handleSubmit = () => {
+  const getDisplayLocation = () => {
+    if (locationMode === 'current') {
+      return location;
+    }
+    return selectedLocation;
+  }
+
+  const handleSubmit = async () => {
+    // --- CRITICAL FIXES: Check Authentication Readiness ---
+    if (!isAuthReady) {
+        showAlert('Services are still initializing. Please wait a moment.', 'warning');
+        return;
+    }
+    if (!userId) {
+        showAlert('User authentication failed. Please re-login to ensure report identity.', 'warning');
+        return;
+    }
+    // ----------------------------------------------------
+
     if (!selectedHazardType) {
-      alert('Please select a hazard type')
+      showAlert('Please select a hazard type')
       return
     }
 
     const reportLocation = getDisplayLocation()
     if (!reportLocation) {
-      alert('Please select a location for the report')
+      showAlert('Please select a location for the report')
       return
     }
+
+    if (selectedHazardType.id === 'others' && !extraHazardType) {
+        showAlert('You selected "Others." Please specify the extra hazard type.')
+        return
+    }
+
+    // --- Retrieve role from localStorage (as per your architecture) ---
+    const userRole = localStorage.getItem('selectedRole') || 'Guest';
+    // -----------------------------------------------------------------
 
     const reportData = {
       hazardType: selectedHazardType.id,
       description,
-      location: reportLocation,
-      mediaFiles,
-      timestamp: new Date().toISOString(),
-      extraHazardType: showExtraTypes ? extraHazardType : null
+      // Simplify location object for Firestore insertion
+      location: reportLocation.name ? reportLocation : { 
+        lat: reportLocation.lat, 
+        lng: reportLocation.lng, 
+        name: `${reportLocation.lat.toFixed(4)}, ${reportLocation.lng.toFixed(4)}` 
+      },
+      // Simplify file objects for storage (Firestore does not store actual files)
+      mediaFiles: mediaFiles.map(f => ({ name: f.name, size: f.size })),
+      extraHazardType: showExtraTypes ? extraHazardType : null,
+      
+      // --- Final Stamped Data ---
+      reporterRole: userRole 
     }
-
-    // Add the report to the context
-    addReport(reportData)
     
-    alert('Hazard report submitted successfully!')
-    navigate('/reports')
+    // addReport now logs detailed errors if it fails (as updated in ReportsContext)
+    const result = await addReport(reportData) 
+    
+    if (result) {
+        showAlert('Hazard report submitted successfully! Redirecting...', 'information')
+        setTimeout(() => navigate('/reports'), 1500)
+    } else {
+        // This catches the error if addReport returned null (due to db/userId being missing)
+        showAlert('Error submitting report. Please check the console.', 'warning') 
+    }
   }
 
   const getMapUrl = () => {
-    const displayLocation = selectedLocation || location
+    const displayLocation = getDisplayLocation()
     if (!displayLocation) return ''
     return `https://maps.google.com/maps?q=${displayLocation.lat},${displayLocation.lng}&z=15&output=embed`
   }
@@ -178,7 +239,7 @@ const ReportHazardPage = () => {
       })))
     } catch (error) {
       console.error('Error searching locations:', error)
-      alert('Error searching for locations. Please try again.')
+      showAlert('Error searching for locations. Please try again.')
     }
   }
 
@@ -193,21 +254,18 @@ const ReportHazardPage = () => {
     const lng = parseFloat(manualLng)
     
     if (isNaN(lat) || isNaN(lng)) {
-      alert('Please enter valid coordinates')
+      showAlert('Please enter valid coordinates')
       return
     }
     
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      alert('Please enter valid latitude (-90 to 90) and longitude (-180 to 180)')
+      showAlert('Please enter valid latitude (-90 to 90) and longitude (-180 to 180)')
       return
     }
     
     setSelectedLocation({ lat, lng, name: `${lat.toFixed(4)}, ${lng.toFixed(4)}` })
   }
 
-  const getDisplayLocation = () => {
-    return selectedLocation || location
-  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -226,6 +284,16 @@ const ReportHazardPage = () => {
             </p>
           </div>
 
+          {/* Custom Message Box */}
+          {message && (
+              <AlertCard 
+                  type={message.type === 'information' ? 'information' : 'warning'} 
+                  title={message.type === 'information' ? 'Success' : 'Attention'}
+                  description={message.text}
+                  className="mb-6"
+              />
+          )}
+
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Left Column - Location and Quick Report */}
             <div className="space-y-6">
@@ -242,7 +310,7 @@ const ReportHazardPage = () => {
                       onClick={() => setLocationMode('current')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         locationMode === 'current'
-                          ? 'bg-incois-blue text-white'
+                          ? 'bg-ocean-500 text-white' // Changed from incois-blue to ocean-500 for consistency
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -252,7 +320,7 @@ const ReportHazardPage = () => {
                       onClick={() => setLocationMode('search')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         locationMode === 'search'
-                          ? 'bg-incois-blue text-white'
+                          ? 'bg-ocean-500 text-white' // Changed from incois-blue to ocean-500 for consistency
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -262,7 +330,7 @@ const ReportHazardPage = () => {
                       onClick={() => setLocationMode('manual')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         locationMode === 'manual'
-                          ? 'bg-incois-blue text-white'
+                          ? 'bg-ocean-500 text-white' // Changed from incois-blue to ocean-500 for consistency
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -293,13 +361,13 @@ const ReportHazardPage = () => {
                             />
                           </div>
                         </div>
-                        <button className="btn-primary w-full">
-                          📍 Quick Report → Tap to capture & report
+                        <button className="btn-primary w-full opacity-50 cursor-not-allowed">
+                          📍 Quick Report → (Requires Hazard Type/Description)
                         </button>
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-incois-blue mx-auto mb-4"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ocean-500 mx-auto mb-4"></div> 
                         <p className="text-gray-600">Getting your location...</p>
                       </div>
                     )}
@@ -316,7 +384,7 @@ const ReportHazardPage = () => {
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search for a location..."
-                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-incois-blue focus:border-transparent"
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-ocean-500 focus:border-transparent" // Updated ring color
                           onKeyPress={(e) => e.key === 'Enter' && handleLocationSearch()}
                         />
                         <button
@@ -328,7 +396,7 @@ const ReportHazardPage = () => {
                       </div>
                       
                       {searchResults.length > 0 && (
-                        <div className="space-y-2 mb-4">
+                        <div className="space-y-2 mb-4 max-h-48 overflow-y-auto border p-2 rounded-lg">
                           {searchResults.map((result) => (
                             <button
                               key={result.id}
@@ -364,8 +432,8 @@ const ReportHazardPage = () => {
                             />
                           </div>
                         </div>
-                        <button className="btn-primary w-full">
-                          📍 Report at Selected Location
+                        <button className="btn-primary w-full opacity-50 cursor-not-allowed">
+                          📍 Report at Selected Location (Fill form below)
                         </button>
                       </div>
                     )}
@@ -387,7 +455,7 @@ const ReportHazardPage = () => {
                             onChange={(e) => setManualLat(e.target.value)}
                             placeholder="e.g., 19.0760"
                             step="0.000001"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-incois-blue focus:border-transparent"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-ocean-500 focus:border-transparent" // Updated ring color
                           />
                         </div>
                         <div>
@@ -400,7 +468,7 @@ const ReportHazardPage = () => {
                             onChange={(e) => setManualLng(e.target.value)}
                             placeholder="e.g., 72.8777"
                             step="0.000001"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-incois-blue focus:border-transparent"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-ocean-500 focus:border-transparent" // Updated ring color
                           />
                         </div>
                       </div>
@@ -431,8 +499,8 @@ const ReportHazardPage = () => {
                             />
                           </div>
                         </div>
-                        <button className="btn-primary w-full">
-                          📍 Report at These Coordinates
+                        <button className="btn-primary w-full opacity-50 cursor-not-allowed">
+                          📍 Report at These Coordinates (Fill form below)
                         </button>
                       </div>
                     )}
@@ -452,7 +520,7 @@ const ReportHazardPage = () => {
                       onClick={() => handleHazardTypeSelect(type)}
                       className={`p-4 rounded-lg border-2 transition-all ${
                         selectedHazardType?.id === type.id
-                          ? 'border-incois-blue bg-incois-blue text-white'
+                          ? 'border-ocean-500 bg-ocean-500 text-white' // Updated color
                           : `border-gray-200 ${type.color}`
                       }`}
                     >
@@ -494,7 +562,7 @@ const ReportHazardPage = () => {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe the hazard in detail..."
-                  className="w-full h-32 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-incois-blue focus:border-transparent"
+                  className="w-full h-32 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-ocean-500 focus:border-transparent" // Updated ring color
                 />
                 
                 {/* Voice Input Button */}

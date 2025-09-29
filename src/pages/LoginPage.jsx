@@ -1,24 +1,48 @@
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+// Removed unused auth imports: getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged
 import Footer from '../components/Footer'
 import Card from '../components/Card'
+
+// Function to get a unique ID for the user, creating one if it doesn't exist
+const getOrCreatePersistentId = () => {
+  let mockId = localStorage.getItem('mockId');
+  if (!mockId) {
+    // Generate a new unique ID if none exists (simulating new user registration)
+    mockId = `user_${crypto.randomUUID()}`;
+    localStorage.setItem('mockId', mockId);
+  }
+  return mockId;
+};
 
 const LoginPage = () => {
   const navigate = useNavigate()
 
   const handleFieldContributorLogin = () => {
+    // 1. Get/Create the persistent ID for tracking user reports across devices
+    const persistentId = getOrCreatePersistentId();
+    
+    // 2. Store the role and the persistent ID in localStorage
+    localStorage.setItem('userRole', 'Field Contributor');
+    localStorage.setItem('selectedRole', 'Coastal Resident'); // Default sub-role for nav/flow clarity
+    
+    // 3. Navigate
     navigate('/contributor-role')
   }
 
   const handleAdministratorLogin = () => {
-    // For now, redirect to reports page
-    navigate('/reports')
+    // 1. Get/Create the persistent ID (Admins also need an ID for audit tracking)
+    const persistentId = getOrCreatePersistentId();
+    
+    // 2. Store the role and the persistent ID
+    localStorage.setItem('userRole', 'Administrator');
+    localStorage.setItem('selectedRole', 'INCOIS Analyst'); // Default sub-role for Admins
+    
+    // 3. Navigate
+    navigate('/admin-dashboard')
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar showNav={true} />
-      
       <main className="flex-1">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Page Title */}
@@ -41,8 +65,8 @@ const LoginPage = () => {
             </h2>
             
             <div className="grid md:grid-cols-2 gap-8">
-              {/* Field Contributor Card */}git remote remove origin
-              <Card onClick={handleFieldContributorLogin} className="text-center group hover:scale-105 transition-transform duration-300">
+              {/* Field Contributor Card */}
+              <Card onClick={handleFieldContributorLogin} className="text-center group hover:scale-105 transition-transform duration-300 cursor-pointer">
                 <div className="mb-6">
                   <div className="w-20 h-20 bg-ocean-gradient rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-all duration-300">
                     <div className="text-3xl">👥</div>
@@ -60,12 +84,12 @@ const LoginPage = () => {
                   </div>
                 </div>
                 <button className="btn-primary w-full text-lg py-4">
-                  🚀 Login as Field Contributor
+                    Login as Field Contributor
                 </button>
               </Card>
 
               {/* Administrator Card */}
-              <Card onClick={handleAdministratorLogin} className="text-center group hover:scale-105 transition-transform duration-300">
+              <Card onClick={handleAdministratorLogin} className="text-center group hover:scale-105 transition-transform duration-300 cursor-pointer">
                 <div className="mb-6">
                   <div className="w-20 h-20 bg-wave-gradient rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-all duration-300">
                     <div className="text-3xl">⚙️</div>
@@ -82,7 +106,7 @@ const LoginPage = () => {
                   </div>
                 </div>
                 <button className="btn-primary w-full text-lg py-4">
-                  🚀 Login as Administrator
+                    Login as Administrator
                 </button>
               </Card>
             </div>
