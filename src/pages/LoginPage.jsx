@@ -41,7 +41,7 @@ const LoginPage = () => {
             </h2>
             
             <div className="grid md:grid-cols-2 gap-8">
-              {/* Field Contributor Card */}git remote remove origin
+              {/* Field Contributor Card */}
               <Card onClick={handleFieldContributorLogin} className="text-center group hover:scale-105 transition-transform duration-300">
                 <div className="mb-6">
                   <div className="w-20 h-20 bg-ocean-gradient rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-all duration-300">
