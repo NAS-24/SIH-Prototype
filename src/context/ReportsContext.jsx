@@ -58,6 +58,91 @@ const MOCK_SOCIAL_MEDIA_DATA = [
 ];
 // -----------------------------------------------------------
 
+// --- MOCK REPORT DATA (Guaranteed Hotspot Data) ---
+const MOCK_REPORTS = [
+    // CRITICAL HOTSPOT 1: Visakhapatnam (Matching "Visakhapatnam Port") - 5 Reports
+    {
+        id: 'r1', persistentMockId: 'coastal_guard_1', reporterRole: 'Coastal Guard', status: 'received', 
+        hazardType: 'flooding', description: 'Immediate heavy sea ingression, 1m water on road.', 
+        location: { lat: 17.71, lng: 83.27, name: 'Visakhapatnam Port' }, mediaFiles: [], date: '9/28/2025'
+    },
+    {
+        id: 'r2', persistentMockId: 'resident_4', reporterRole: 'Coastal Resident', status: 'received', 
+        hazardType: 'erosion', description: 'Large section of beach wall collapsed.', 
+        location: { lat: 17.70, lng: 83.25, name: 'Visakhapatnam Port' }, mediaFiles: [], date: '9/28/2025'
+    },
+    {
+        id: 'r3', persistentMockId: 'resident_5', reporterRole: 'Coastal Resident', status: 'review', 
+        hazardType: 'others', extraHazardType: 'Tsunami Warning', description: 'Unusual rapid receding tide near harbor.', 
+        location: { lat: 17.72, lng: 83.28, name: 'Visakhapatnam Port' }, mediaFiles: [], date: '9/28/2025'
+    },
+    {
+        id: 'r4', persistentMockId: 'guard_2', reporterRole: 'Coastal Guard', status: 'verified', 
+        hazardType: 'flooding', description: 'Verified 1.5m high waves impacting shoreline.', 
+        location: { lat: 17.70, lng: 83.26, name: 'Visakhapatnam Port' }, mediaFiles: [], date: '9/27/2025'
+    },
+    {
+        id: 'r5', persistentMockId: 'volunteer_1', reporterRole: 'General Volunteer', status: 'false', 
+        hazardType: 'pollution', description: 'Minor debris sighted.', 
+        location: { lat: 17.73, lng: 83.24, name: 'Visakhapatnam Port' }, mediaFiles: [], date: '9/26/2025'
+    },
+
+    // HIGH HOTSPOT 2: Puri (Matching "Puri Beach") - 3 Reports
+    {
+        id: 'r6', persistentMockId: 'guard_3', reporterRole: 'Coastal Guard', status: 'received', 
+        hazardType: 'erosion', description: 'Heavy dunes washing away. Access compromised.', 
+        location: { lat: 19.80, lng: 85.83, name: 'Puri Beach' }, mediaFiles: [], date: '9/28/2025'
+    },
+    {
+        id: 'r7', persistentMockId: 'resident_6', reporterRole: 'Coastal Resident', status: 'review', 
+        hazardType: 'flooding', description: 'Water approaching main road.', 
+        location: { lat: 19.81, lng: 85.84, name: 'Puri Beach' }, mediaFiles: [], date: '9/28/2025'
+    },
+    {
+        id: 'r8', persistentMockId: 'volunteer_2', reporterRole: 'General Volunteer', status: 'received', 
+        hazardType: 'others', extraHazardType: 'Beach Closure', description: 'Local police closing access.', 
+        location: { lat: 19.79, lng: 85.82, name: 'Puri Beach' }, mediaFiles: [], date: '9/27/2025'
+    },
+
+    // MODERATE HOTSPOT 3: Mumbai (Matching "Mumbai Port") - 1 Report
+    {
+        id: 'r9', persistentMockId: 'admin_test_1', reporterRole: 'Administrator', status: 'received', 
+        hazardType: 'pollution', description: 'Confirmed minor oil slick near dock 3.', 
+        location: { lat: 18.96, lng: 72.85, name: 'Mumbai Port' }, mediaFiles: [], date: '9/28/2025'
+    },
+    
+    // Other General Reports
+    {
+        id: 'r10', persistentMockId: 'resident_1', reporterRole: 'Coastal Resident', status: 'verified', 
+        hazardType: 'flooding', description: 'Verified report from yesterday.', 
+        location: { lat: 12.92, lng: 74.85, name: 'Mangalore' }, mediaFiles: [], date: '9/26/2025'
+    },
+    {
+        id: 'r11', persistentMockId: 'resident_1', reporterRole: 'Coastal Resident', status: 'received', 
+        hazardType: 'erosion', description: 'New report by the same resident.', 
+        location: { lat: 12.93, lng: 74.86, name: 'Mangalore' }, mediaFiles: [], date: '9/29/2025'
+    },
+    {
+        id: 'r12', persistentMockId: 'guest_user', reporterRole: 'Guest', status: 'review', 
+        hazardType: 'others', extraHazardType: 'Navigation Hazard', description: 'Floating debris sighted near channel.', 
+        location: { lat: 15.29, lng: 73.85, name: 'Goa Coast' }, mediaFiles: [], date: '9/29/2025'
+    },
+    {
+        id: 'r13', persistentMockId: 'guard_4', reporterRole: 'Coastal Guard', status: 'verified', 
+        hazardType: 'pollution', description: 'Confirmed pollution cleared.', 
+        location: { lat: 16.51, lng: 82.02, name: 'Kakinada' }, mediaFiles: [], date: '9/25/2025'
+    },
+    {
+        id: 'r14', persistentMockId: 'resident_1', reporterRole: 'Coastal Resident', status: 'false', 
+        hazardType: 'flooding', description: 'Heavy rain, but not coastal flooding.', 
+        location: { lat: 12.98, lng: 80.24, name: 'Chennai Suburb' }, mediaFiles: [], date: '9/28/2025'
+    },
+    {
+        id: 'r15', persistentMockId: 'resident_7', reporterRole: 'Coastal Resident', status: 'received', 
+        hazardType: 'flooding', description: 'Water level rising quickly.', 
+        location: { lat: 13.06, lng: 80.27, name: 'Chennai Central' }, mediaFiles: [], date: '9/29/2025'
+    },
+];
 
 const ReportsContext = createContext()
 
@@ -70,7 +155,7 @@ export const useReports = () => {
 }
 
 export const ReportsProvider = ({ children }) => {
-  const [reports, setReports] = useState([])
+  const [reports, setReports] = useState(MOCK_REPORTS) // Initialize with MOCK DATA
   const [db, setDb] = useState(null);
   const [userId] = useState(crypto.randomUUID()); 
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -107,20 +192,25 @@ export const ReportsProvider = ({ children }) => {
     if (db && isAuthReady && !configError) {
       const reportsQuery = query(collection(db, REPORTS_COLLECTION_PATH));
 
+      // Note: For MVP, we combine mock data with live data. 
       const unsubscribeSnapshot = onSnapshot(reportsQuery, (snapshot) => {
-        const fetchedReports = snapshot.docs.map(doc => ({
+        const liveReports = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
         
-        // Sort in memory by timestamp descending (newest first)
-        fetchedReports.sort((a, b) => {
+        // Combine live reports with mock data (filtering out mock data if the ID already exists in live data)
+        const combinedReports = [...MOCK_REPORTS, ...liveReports.filter(live => 
+            !MOCK_REPORTS.some(mock => mock.id === live.id)
+        )];
+        
+        combinedReports.sort((a, b) => {
             const timeA = a.timestamp?.toMillis() || 0;
             const timeB = b.timestamp?.toMillis() || 0;
             return timeB - timeA;
         });
 
-        setReports(fetchedReports);
+        setReports(combinedReports);
       }, (error) => {
         console.error("Firestore snapshot error:", error);
       });
@@ -186,13 +276,9 @@ export const ReportsProvider = ({ children }) => {
     return reports;
   }, [reports]);
 
-  // --- NEW: Expose Social Media Mock Data ---
   const getSocialMediaData = useCallback(() => {
-      // In a real app, this function would query an NLP output table.
-      // Here, we return the static mock data.
       return MOCK_SOCIAL_MEDIA_DATA;
   }, []);
-  // ------------------------------------------
 
   const value = {
     reports,
@@ -204,7 +290,8 @@ export const ReportsProvider = ({ children }) => {
     getMyReports,
     getAllReports,
     persistentMockId,
-    getSocialMediaData, // EXPOSED
+    getSocialMediaData, 
+    db // Expose DB instance for use in AdminWarningSubmit
   }
 
   return (

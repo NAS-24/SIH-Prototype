@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import Card from '../components/Card'
 import AlertCard from '../components/AlertCard' // Import AlertCard
+// Loader2 is no longer needed
 
 const ReportHazardPage = () => {
   const navigate = useNavigate()
@@ -26,11 +27,13 @@ const ReportHazardPage = () => {
   const [manualLat, setManualLat] = useState('')
   const [manualLng, setManualLng] = useState('')
   const [message, setMessage] = useState(null); // State for custom message box
+  // isSubmitting state is now only used for blocking double-clicks internally
+  const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [isSuccessful, setIsSuccessful] = useState(false); // No longer needed for visual state
 
   // Helper function to show custom alert/message
   const showAlert = (text, type = 'warning') => {
       setMessage({ text, type });
-      setTimeout(() => setMessage(null), 5000); // Auto-dismiss after 5 seconds
   };
   
   // Get current location
@@ -73,7 +76,7 @@ const ReportHazardPage = () => {
     },
     {
       id: 'erosion',
-      name: 'Coastal Erosion', // FIX: Removed duplicate 'name' property
+      name: 'Coastal Erosion', 
       icon: '🏖️',
       color: 'bg-sand-100 text-sand-800 hover:bg-sand-200 border-sand-300'
     },
@@ -156,66 +159,101 @@ const ReportHazardPage = () => {
     return selectedLocation;
   }
 
+  const resetFormFields = () => {
+    setSelectedHazardType(null);
+    setDescription('');
+    setMediaFiles([]);
+    setShowExtraTypes(false);
+    setExtraHazardType('');
+    setLocationMode('current');
+    setSelectedLocation(null);
+    setSearchQuery(''); 
+    setSearchResults([]);
+    setManualLat('');
+    setManualLng('');
+  }
+
   const handleSubmit = async () => {
-    // --- CRITICAL FIXES: Check Authentication Readiness ---
-    if (!isAuthReady) {
-        showAlert('Services are still initializing. Please wait a moment.', 'warning');
-        return;
+    // --- CRITICAL SUBMISSION CHECKS ---
+    if (!isAuthReady || !userId) {
+        showAlert('Please wait for initialization.', 'warning'); 
+        return; 
     }
-    if (!userId) {
-        showAlert('User authentication failed. Please re-login to ensure report identity.', 'warning');
-        return;
+    // Prevent double-submission and ensure form validity
+    if (!selectedHazardType || !getDisplayLocation()) {
+      showAlert('Please select hazard type and location.', 'warning')
+      return; 
     }
-    // ----------------------------------------------------
-
-    if (!selectedHazardType) {
-      showAlert('Please select a hazard type')
-      return
-    }
-
-    const reportLocation = getDisplayLocation()
-    if (!reportLocation) {
-      showAlert('Please select a location for the report')
-      return
-    }
-
     if (selectedHazardType.id === 'others' && !extraHazardType) {
-        showAlert('You selected "Others." Please specify the extra hazard type.')
-        return
+        showAlert('Please specify the extra hazard type.', 'warning')
+        return;
+    }
+    // ------------------------------------
+
+    // Start submission flag to block double-clicks
+    setIsSubmitting(true);
+
+    const reportLocation = getDisplayLocation();
+    const userRole = localStorage.getItem('selectedRole') || 'Guest';
+    
+    // --- DYNAMIC LOCATION NAMING FIX ---
+    let finalLocationName;
+    if (selectedLocation?.name) {
+        finalLocationName = selectedLocation.name.trim();
+    } else if (location && locationMode === 'current') {
+        finalLocationName = `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+    } else {
+        finalLocationName = "Unknown Location";
     }
 
-    // --- Retrieve role from localStorage (as per your architecture) ---
-    const userRole = localStorage.getItem('selectedRole') || 'Guest';
-    // -----------------------------------------------------------------
+    // Temporary check for mock hotspot compatibility
+    if (finalLocationName.toLowerCase().startsWith('visakhapatnam')) {
+        finalLocationName = 'Visakhapatnam Port';
+    } else if (finalLocationName.toLowerCase().startsWith('puri')) {
+        finalLocationName = 'Puri Beach';
+    } else if (finalLocationName.toLowerCase().startsWith('mumbai')) {
+        finalLocationName = 'Mumbai Port';
+    }
+    // ------------------------------------------------------------------------------
 
     const reportData = {
       hazardType: selectedHazardType.id,
       description,
-      // Simplify location object for Firestore insertion
-      location: reportLocation.name ? reportLocation : { 
+      location: { 
         lat: reportLocation.lat, 
         lng: reportLocation.lng, 
-        name: `${reportLocation.lat.toFixed(4)}, ${reportLocation.lng.toFixed(4)}` 
+        name: finalLocationName 
       },
-      // Simplify file objects for storage (Firestore does not store actual files)
       mediaFiles: mediaFiles.map(f => ({ name: f.name, size: f.size })),
       extraHazardType: showExtraTypes ? extraHazardType : null,
-      
-      // --- Final Stamped Data ---
       reporterRole: userRole 
     }
     
-    // addReport now logs detailed errors if it fails (as updated in ReportsContext)
-    const result = await addReport(reportData) 
-    
-    if (result) {
-        showAlert('Hazard report submitted successfully! Redirecting...', 'information')
-        setTimeout(() => navigate('/reports'), 1500)
-    } else {
-        // This catches the error if addReport returned null (due to db/userId being missing)
-        showAlert('Error submitting report. Please check the console.', 'warning') 
+    try {
+      const result = await addReport(reportData) 
+      
+      if (result) {
+          // 1. Show the success message (the POP-UP)
+          showAlert('Report Submitted!', 'information')
+          
+          // 2. Clear fields immediately for visual confirmation
+          resetFormFields(); 
+          
+          // 3. Navigate immediately (zero delay for quick feel)
+          navigate('/reports'); 
+      } else {
+          // Submission Failure Feedback
+          showAlert('Error submitting report. Please check the console for details.', 'warning');
+      }
+    } catch (e) {
+        console.error("Critical submission error:", e);
+        showAlert('Critical error during submission. Check console for details.', 'warning');
+    } finally {
+        // Final state reset, regardless of success/failure/navigation
+        setIsSubmitting(false); 
     }
   }
+
 
   const getMapUrl = () => {
     const displayLocation = getDisplayLocation()
@@ -263,7 +301,7 @@ const ReportHazardPage = () => {
       return
     }
     
-    setSelectedLocation({ lat, lng, name: `${lat.toFixed(4)}, ${lng.toFixed(4)}` })
+    setSelectedLocation({ lat, lng, name: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }) 
   }
 
 
@@ -287,7 +325,7 @@ const ReportHazardPage = () => {
           {/* Custom Message Box */}
           {message && (
               <AlertCard 
-                  type={message.type === 'information' ? 'information' : 'warning'} 
+                  type={message.type === 'information' ? 'success' : 'warning'} // Use success for information type
                   title={message.type === 'information' ? 'Success' : 'Attention'}
                   description={message.text}
                   className="mb-6"
@@ -500,7 +538,7 @@ const ReportHazardPage = () => {
                           </div>
                         </div>
                         <button className="btn-primary w-full opacity-50 cursor-not-allowed">
-                          📍 Report at These Coordinates (Fill form below)
+                          📍 Report at Selected Location (Fill form below)
                         </button>
                       </div>
                     )}
@@ -620,9 +658,10 @@ const ReportHazardPage = () => {
                 <div className="space-y-4">
                   <button
                     onClick={handleSubmit}
-                    className="w-full btn-danger text-lg py-4"
+                    className={`w-full btn-danger text-lg py-4`}
+                    disabled={isSubmitting}
                   >
-                    🚨 Report Urgent Hazard
+                    {'🚨 Report Urgent Hazard'}
                   </button>
                   
                   <button

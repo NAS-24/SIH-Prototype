@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useReports } from '../context/ReportsContext';
-// import Navbar from '../components/Navbar'; <-- REMOVED
+import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Card from '../components/Card'; 
 import AlertCard from '../components/AlertCard'; 
@@ -155,19 +155,29 @@ const SocialMediaContext = ({ socialData }) => {
 };
 
 // Component to display the Map (Middle Panel Top)
-const MapComponent = ({ selectedReport }) => {
+const MapComponent = ({ selectedReport, activeHotspot }) => {
     // Fallback location is Mumbai/India focus
-    const mapLocation = selectedReport?.location || { lat: 18.9750, lng: 72.8258 };
-    const markerColor = selectedReport?.status === 'verified' ? 'green' : 'red';
+    let mapLocation;
+    let markerColor;
+
+    if (activeHotspot) {
+        // PRIORITY 1: If a hotspot is selected, use its exact coordinates for focus
+        mapLocation = { lat: activeHotspot.lat, lng: activeHotspot.lng };
+        markerColor = 'blue'; // Use a distinct color for hotspot focus
+    } else {
+        // PRIORITY 2: If a specific report is selected, use its location
+        mapLocation = selectedReport?.location || { lat: 18.9750, lng: 72.8258 }; // Fallback to Mumbai
+        markerColor = selectedReport?.status === 'verified' ? 'green' : 'red';
+    }
     
-    // Construct the URL to focus on the selected report with a marker
+    // Construct the URL to focus on the location with a marker
     const mapUrl = `https://maps.google.com/maps?q=${mapLocation.lat},${mapLocation.lng}&markers=color:${markerColor}%7C${mapLocation.lat},${mapLocation.lng}&z=10&output=embed`;
 
     return (
-        <Card className="flex-shrink-0 min-h-[300px]">
+        <Card className="flex-shrink-0 h-full">
             <h3 className="text-xl font-bold text-ocean-800 mb-4 flex items-center">
                 <MapPin size={20} className="mr-2 text-ocean-600" />
-                Live Hazard Map (A1) | Focus: {selectedReport ? selectedReport.location?.name?.substring(0, 20) || 'Coordinates' : 'India Coastline'}
+                Live Hazard Map (A1) | Focus: {activeHotspot ? activeHotspot.name : (selectedReport ? selectedReport.location?.name?.substring(0, 20) || 'Coordinates' : 'India Coastline')}
             </h3>
             <div className="w-full h-full bg-gray-100 rounded-lg overflow-hidden relative">
                 <iframe
@@ -186,6 +196,38 @@ const MapComponent = ({ selectedReport }) => {
 };
 
 
+// --- MOCK HOTSPOT DATA (Used for interactive filtering) ---
+const HOTSPOT_MOCK_DATA = [
+    {
+        name: 'Visakhapatnam Coast', 
+        status: 'CRITICAL', 
+        count: 5, 
+        locationName: 'Visakhapatnam Port', // Key used for matching reports
+        lat: 17.70, // Visakhapatnam Lat
+        lng: 83.27, // Visakhapatnam Lng
+        color: 'bg-red-100 text-red-800 border-red-300'
+    },
+    {
+        name: 'Puri Beach Sector', 
+        status: 'HIGH', 
+        count: 3, 
+        locationName: 'Puri Beach', 
+        lat: 19.80, // Puri Lat
+        lng: 85.83, // Puri Lng
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-300'
+    },
+    {
+        name: 'Mumbai Port Area', 
+        status: 'MODERATE', 
+        count: 1, 
+        locationName: 'Mumbai Port', 
+        lat: 18.96, // Mumbai Lat
+        lng: 72.85, // Mumbai Lng
+        color: 'bg-green-100 text-green-800 border-green-300'
+    },
+];
+
+
 // --- Main Admin Dashboard Component ---
 const AdminDashboardPage = ({ setCurrentRole, userId }) => {
     // Get all necessary data and stable DB instance from context
@@ -193,9 +235,10 @@ const AdminDashboardPage = ({ setCurrentRole, userId }) => {
     const socialData = getSocialMediaData();
 
     // State for filtering
-    const [statusFilter, setStatusFilter] = useState('received'); // Default to show NEW/RECEIVED
+    const [statusFilter, setStatusFilter] = useState('all'); // FIX: Default to show ALL
     const [roleFilter, setRoleFilter] = useState('all');
     const [selectedReport, setSelectedReport] = useState(null);
+    const [activeHotspot, setActiveHotspot] = useState(null); // New state to track selected hotspot
 
     // Initial Loading Check - Renders a loader if Context isn't ready
     if (!isAuthReady) {
@@ -225,28 +268,54 @@ const AdminDashboardPage = ({ setCurrentRole, userId }) => {
         if (roleFilter !== 'all') {
             list = list.filter(report => report.reporterRole === roleFilter);
         }
+
+        // 3. Filter by Hotspot 
+        if (activeHotspot) {
+             // Match reports whose location name contains the hotspot's location name
+             const hotspotNameClean = activeHotspot.locationName.toLowerCase().trim();
+             list = list.filter(report => 
+                 report.location?.name?.toLowerCase().trim().includes(hotspotNameClean)
+             );
+        }
         
-        // 3. Sort by time (newest first for urgency)
+        // 4. Sort by time (newest first for urgency)
         list.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
         return list;
-    }, [getAllReports, statusFilter, roleFilter]);
+    }, [getAllReports, statusFilter, roleFilter, activeHotspot]);
 
     // Effect to automatically set map focus and Verification Queue focus
     useEffect(() => {
+        // If a specific hotspot is selected, DO NOT change map focus based on reports.
+        if (activeHotspot) return; 
+
+        // Automatically select the first report if no specific report is selected (or if filters changed)
         if (filteredReports.length > 0 && !selectedReport) {
             setSelectedReport(filteredReports[0]);
         }
-        // If the selected report is filtered out, clear selection
+        // If the previously selected report is filtered out, clear selection
         if (selectedReport && !filteredReports.find(r => r.id === selectedReport.id)) {
              setSelectedReport(null);
         }
-    }, [filteredReports, selectedReport]);
+    }, [filteredReports, selectedReport, activeHotspot]);
     
     // Handler for map focus when clicking a report in the queue
     const handleReportSelect = useCallback((report) => {
         setSelectedReport(report);
+        setActiveHotspot(null); // Clear hotspot filter when a specific report is selected
     }, []);
+
+    // Handler for clicking a Hotspot button (sets the filter and map focus)
+    const handleHotspotClick = useCallback((hotspot) => {
+        // Toggle behavior: click same hotspot twice to clear filter
+        const newHotspot = activeHotspot?.name === hotspot.name ? null : hotspot;
+        
+        setActiveHotspot(newHotspot);
+        // FIX: Reset status filter to 'all' so all reports in the hotspot are visible
+        setStatusFilter('all'); 
+        setRoleFilter('all'); 
+        setSelectedReport(null); // Clear specific report selection
+    }, [activeHotspot]);
 
     return (
         <div className="min-h-screen flex flex-col">
@@ -317,28 +386,41 @@ const AdminDashboardPage = ({ setCurrentRole, userId }) => {
                             <Card className="flex-1 overflow-y-auto">
                                 <h3 className="text-xl font-bold text-ocean-800 mb-4">Active Hotspots (Mock)</h3>
                                 <div className="space-y-3">
-                                    <p className="text-sm text-gray-500 italic">Hotspots are generated by report density and social media urgency.</p>
-                                    {/* Mock Hotspot List - Clicking these would filter the queue */}
-                                    <button className="w-full text-left p-3 bg-red-100 text-red-800 border-red-300 border rounded-lg hover:bg-red-200 text-sm font-semibold">
-                                        🔴 Visakhapatnam Coast (5 NEW Reports)
-                                    </button>
-                                    <button className="w-full text-left p-3 bg-yellow-100 text-yellow-800 border-yellow-300 border rounded-lg hover:bg-yellow-200 text-sm font-semibold">
-                                        🟡 Puri Beach Sector (3 Under Review)
-                                    </button>
-                                    <button className="w-full text-left p-3 bg-green-100 text-green-800 border-green-300 border rounded-lg hover:bg-green-200 text-sm font-semibold">
-                                        🟢 Mumbai Port Area (1 Verified Report)
-                                    </button>
+                                    {activeHotspot && (
+                                        <AlertCard 
+                                            type="information" 
+                                            title={`Hotspot Filter Active: ${activeHotspot.name}`}
+                                            description={`Queue is filtered by reports near ${activeHotspot.locationName}. Click again to clear.`}
+                                            className="mb-3"
+                                        />
+                                    )}
+                                    <p className="text-sm text-gray-500 italic">Click a hotspot to filter the queue below:</p>
+                                    
+                                    {HOTSPOT_MOCK_DATA.map((hotspot) => (
+                                        <button 
+                                            key={hotspot.name}
+                                            onClick={() => handleHotspotClick(hotspot)}
+                                            className={`w-full text-left p-3 border rounded-lg hover:bg-opacity-80 transition-all text-sm font-semibold 
+                                                ${hotspot.color} ${activeHotspot?.name === hotspot.name ? 'ring-4 ring-offset-2 ring-ocean-500' : ''}`}
+                                        >
+                                            <span className="mr-2">{hotspot.status === 'CRITICAL' ? '🔴' : hotspot.status === 'HIGH' ? '🟡' : '🟢'}</span>
+                                            {hotspot.name} ({hotspot.count} Reports)
+                                        </button>
+                                    ))}
+
                                 </div>
                             </Card>
                         </div>
 
                         {/* === COLUMN 2: MAP & QUEUE === */}
                         <div className="md:col-span-2 xl:col-span-2 flex flex-col space-y-6">
-                            {/* Live Situational Map (A1.1) */}
-                            <MapComponent selectedReport={selectedReport} />
+                            {/* Live Situational Map (A1.1) - Takes the bulk of the space */}
+                            <div className="h-[65%]"> 
+                                <MapComponent selectedReport={selectedReport} activeHotspot={activeHotspot} />
+                            </div>
 
-                            {/* Verification Queue (A2) */}
-                            <Card className="flex-1 overflow-y-auto">
+                            {/* Verification Queue (A2) - Takes the remaining space */}
+                            <Card className="flex-1 overflow-y-auto"> 
                                 <h3 className="text-xl font-bold text-ocean-800 mb-4">
                                     <ListChecks className="inline mr-2" size={24} /> Verification Queue (Priority List)
                                 </h3>
@@ -365,7 +447,6 @@ const AdminDashboardPage = ({ setCurrentRole, userId }) => {
                 </div>
             </main>
 
-            <Footer />
         </div>
     );
 };
